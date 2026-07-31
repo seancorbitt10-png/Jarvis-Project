@@ -1,1 +1,1 @@
-# Jarvis-Project
+Synapse Project
