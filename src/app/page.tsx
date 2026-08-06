@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getOptionalSession } from "@/lib/safe-auth";
+
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const session = await auth();
+  const session = await getOptionalSession();
   if (session?.user) redirect("/chat");
 
   return (
@@ -39,7 +41,8 @@ export default async function HomePage() {
           </div>
 
           <div className="panel hero-mesh relative min-h-[340px] overflow-hidden p-6 animate-rise-delay lg:min-h-[420px]">
-            <div className="absolute inset-0 opacity-40"
+            <div
+              className="absolute inset-0 opacity-40"
               style={{
                 backgroundImage:
                   "linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px)",
