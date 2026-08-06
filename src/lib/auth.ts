@@ -45,35 +45,44 @@ providers.push(
       const email =
         (credentials?.email as string)?.trim() || "student@synapse.local";
 
-      const user = await prisma.user.upsert({
-        where: { email },
-        create: {
-          email,
-          name: "Demo Student",
-          image: null,
-        },
-        update: {},
-      });
+      try {
+        const user = await prisma.user.upsert({
+          where: { email },
+          create: {
+            email,
+            name: "Demo Student",
+            image: null,
+          },
+          update: {},
+        });
 
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      } catch (error) {
+        console.error("[auth] demo authorize failed — is the database migrated?", error);
+        throw new Error(
+          "Database not ready. Run `npx prisma migrate dev` then restart the server.",
+        );
+      }
     },
   }),
 );
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Adapter helps Google account linking; demo login uses JWT sessions.
   adapter: PrismaAdapter(prisma),
   providers,
+  secret: process.env.AUTH_SECRET,
   session: {
-    // Credentials provider requires JWT sessions.
     strategy: "jwt",
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {

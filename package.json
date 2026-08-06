@@ -7,6 +7,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "setup": "node scripts/setup-env.mjs && npx prisma migrate deploy && npx prisma generate",
+    "setup:fresh": "node scripts/setup-env.mjs --force && npx prisma migrate deploy && npx prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "postinstall": "prisma generate"
