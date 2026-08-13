@@ -15,6 +15,22 @@ const googleScopes = [
   "https://www.googleapis.com/auth/classroom.announcements.readonly",
 ].join(" ");
 
+/** Prefer env secret; fall back in development so the homepage/demo still load. */
+function resolveAuthSecret() {
+  const fromEnv = process.env.AUTH_SECRET?.trim();
+  if (
+    fromEnv &&
+    fromEnv !== "replace-with-a-long-random-secret" &&
+    fromEnv !== "changeme"
+  ) {
+    return fromEnv;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return fromEnv || undefined;
+  }
+  return "synapse-dev-only-auth-secret-run-npm-run-setup";
+}
+
 const providers = [];
 
 if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
@@ -45,22 +61,30 @@ providers.push(
       const email =
         (credentials?.email as string)?.trim() || "student@synapse.local";
 
-      const user = await prisma.user.upsert({
-        where: { email },
-        create: {
-          email,
-          name: "Demo Student",
-          image: null,
-        },
-        update: {},
-      });
+      try {
+        const user = await prisma.user.upsert({
+          where: { email },
+          create: {
+            email,
+            name: "Demo Student",
+            image: null,
+          },
+          update: {},
+        });
 
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      };
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          image: user.image,
+        };
+      } catch (error) {
+        console.error(
+          "[auth] demo authorize failed — is the database migrated?",
+          error,
+        );
+        return null;
+      }
     },
   }),
 );
@@ -68,12 +92,13 @@ providers.push(
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers,
+  secret: resolveAuthSecret(),
   session: {
-    // Credentials provider requires JWT sessions.
     strategy: "jwt",
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   callbacks: {
     async jwt({ token, user }) {

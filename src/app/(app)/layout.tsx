@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { auth, signOut } from "@/lib/auth";
+import { signOut } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getOptionalSession } from "@/lib/safe-auth";
 
 const links = [
   { href: "/chat", label: "Chat" },
@@ -13,7 +14,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const session = await getOptionalSession();
   if (!session?.user) redirect("/login");
 
   return (
