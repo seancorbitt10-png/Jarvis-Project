@@ -1,24 +1,51 @@
 import { prisma } from "@/lib/db";
-import { getUserMemories, memoriesToPrompt } from "@/lib/jarvis/memory";
 import { buildSystemPrompt } from "@/lib/jarvis/system-prompt";
 import { createJarvisTools } from "@/lib/jarvis/tools";
 import { buildUnifiedTomorrow } from "@/lib/jarvis/tools/school";
 import { formatTimelineForPrompt } from "@/lib/jarvis/demo-data";
 import { isDemoMode } from "@/lib/google/client";
+import {
+  formatPersonalContextForPrompt,
+  getPersonalContext,
+} from "@/lib/jarvis/personal-context";
 
-export async function buildJarvisContext(userId: string, userName?: string | null) {
-  const [memories, connections, plugins] = await Promise.all([
-    getUserMemories(userId),
+export {
+  getPersonalContext,
+  formatPersonalContextForPrompt,
+  ACTIVE_ENTITY_STATUS,
+  COMPLETED_TASK_STATUSES,
+  type PersonalContext,
+  type PersonalContextProfile,
+  type PersonalContextGoal,
+  type PersonalContextProject,
+  type PersonalContextTask,
+  type PersonalContextMemory,
+} from "@/lib/jarvis/personal-context";
+
+/**
+ * Live-LLM prompt/tools assembly.
+ * Loads PersonalContext once and injects it into the system prompt.
+ * School Connections/Plugins remain available for this stage.
+ */
+export async function buildJarvisContext(
+  userId: string,
+  userName?: string | null,
+) {
+  const [personalContext, connections, plugins] = await Promise.all([
+    getPersonalContext(userId),
     prisma.connection.findMany({ where: { userId } }),
     prisma.userPlugin.findMany({ where: { userId } }),
   ]);
 
   const system = buildSystemPrompt({
     userName,
-    memories: memoriesToPrompt(memories),
+    personalContext: formatPersonalContextForPrompt(personalContext),
     connections:
       connections
-        .map((c) => `- ${c.label} (${c.provider}): ${c.status}, perms=${c.permissions}`)
+        .map(
+          (c) =>
+            `- ${c.label} (${c.provider}): ${c.status}, perms=${c.permissions}`,
+        )
         .join("\n") || "None connected yet.",
     plugins:
       plugins
@@ -32,6 +59,7 @@ export async function buildJarvisContext(userId: string, userName?: string | nul
   return {
     system,
     tools: createJarvisTools(userId),
+    personalContext,
   };
 }
 

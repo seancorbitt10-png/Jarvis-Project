@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getUserMemories } from "@/lib/jarvis/memory";
+import { getUserMemories, memoriesToPrompt } from "@/lib/jarvis/memory";
 
 /** Goal/Project statuses treated as "active" for V1 context retrieval. */
 export const ACTIVE_ENTITY_STATUS = "active";
@@ -223,4 +223,86 @@ export async function getPersonalContext(
       },
     },
   };
+}
+
+/**
+ * Deterministic text block for LIVE LLM system prompts.
+ * Empty sections stay explicit; no invented entities.
+ */
+export function formatPersonalContextForPrompt(
+  context: PersonalContext,
+): string {
+  const profileBlock = context.profile
+    ? [
+        `- summary: ${context.profile.summary ?? "(none)"}`,
+        `- timezone: ${context.profile.timezone ?? "(none)"}`,
+      ].join("\n")
+    : "No profile set yet.";
+
+  const goalsBlock = context.goals.length
+    ? context.goals
+        .map((g) => {
+          const bits = [
+            `id=${g.id}`,
+            `status=${g.status}`,
+            g.priority != null ? `priority=${g.priority}` : null,
+            g.targetDate ? `target=${g.targetDate}` : null,
+          ].filter(Boolean);
+          return `- ${g.title} (${bits.join(", ")})${
+            g.description ? ` — ${g.description}` : ""
+          }`;
+        })
+        .join("\n")
+    : "No active goals.";
+
+  const projectsBlock = context.projects.length
+    ? context.projects
+        .map((p) => {
+          const bits = [
+            `id=${p.id}`,
+            `status=${p.status}`,
+            p.goalId ? `goalId=${p.goalId}` : "goalId=(none)",
+          ];
+          return `- ${p.title} (${bits.join(", ")})${
+            p.description ? ` — ${p.description}` : ""
+          }`;
+        })
+        .join("\n")
+    : "No active projects.";
+
+  const tasksBlock = context.tasks.length
+    ? context.tasks
+        .map((t) => {
+          const bits = [
+            `id=${t.id}`,
+            `projectId=${t.projectId}`,
+            `status=${t.status}`,
+            t.priority != null ? `priority=${t.priority}` : null,
+            t.dueAt ? `due=${t.dueAt}` : null,
+          ].filter(Boolean);
+          return `- ${t.title} (${bits.join(", ")})${
+            t.description ? ` — ${t.description}` : ""
+          }`;
+        })
+        .join("\n")
+    : "No incomplete tasks.";
+
+  const memoriesBlock = memoriesToPrompt(context.memories);
+
+  return [
+    "Profile:",
+    profileBlock,
+    "",
+    "Active goals:",
+    goalsBlock,
+    "",
+    "Active projects:",
+    projectsBlock,
+    "",
+    "Incomplete tasks:",
+    tasksBlock,
+    "",
+    "Long-term memory:",
+    memoriesBlock,
+  ].join("\n");
 }
